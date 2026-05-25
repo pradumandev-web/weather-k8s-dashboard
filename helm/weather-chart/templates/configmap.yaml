@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: weather-config
+data:
+  POSTGRES_HOST: "postgres-service"
+  POSTGRES_DB: {{ .Values.postgres.database | quote }}
+  REDIS_HOST: "redis-service"
+  REDIS_PORT: {{ .Values.redis.port | quote }}
+  API_BASE_URL: "https://api.openweathermap.org/data/2.5"
+  CACHE_TTL: {{ .Values.backend.cacheTTL | quote }}

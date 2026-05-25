@@ -1,0 +1,38 @@
+app:
+  name: weather-dashboard
+
+backend:
+  image: praduman127/weather-backend
+  tag: v20260513225129
+  replicas: 2
+  port: 5000
+  cacheTTL: "300"
+
+frontend:
+  image: praduman127/weather-frontend
+  tag: v20260513225129
+  replicas: 1
+  port: 80
+
+postgres:
+  image: postgres
+  tag: v20260513225129
+  replicas: 1
+  port: 5432
+  database: weatherdb
+  storage: 1Gi
+
+redis:
+  image: redis
+  tag: v20260513225129
+  replicas: 1
+  port: 6379
+
+ingress:
+  enabled: true
+  host: weather.local
+  frontendPath: /
+  backendPath: /api
+
+monitoring:
+  enabled: true

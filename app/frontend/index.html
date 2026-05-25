@@ -1,0 +1,148 @@
+$htmlContent = @'
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>WeatherK8s Dashboard</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: Arial, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; padding: 20px; }
+        .container { max-width: 800px; margin: 0 auto; }
+        h1 { text-align: center; color: white; margin-bottom: 30px; }
+        .card { background: white; border-radius: 15px; padding: 25px; margin-bottom: 20px; }
+        .search-box { display: flex; gap: 10px; }
+        input { flex: 1; padding: 12px 20px; font-size: 16px; border: 2px solid #e0e0e0; border-radius: 25px; }
+        button { padding: 12px 30px; background: #667eea; color: white; border: none; border-radius: 25px; cursor: pointer; }
+        .tabs { display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 2px solid #e0e0e0; }
+        .tab { background: none; color: #667eea; padding: 10px 20px; cursor: pointer; }
+        .tab.active { border-bottom: 3px solid #667eea; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        .weather-info { margin-top: 20px; padding: 20px; background: #f8f9fa; border-radius: 10px; display: none; }
+        .weather-info.show { display: block; }
+        .temp { font-size: 48px; font-weight: bold; color: #667eea; }
+        .details { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-top: 15px; }
+        .detail { text-align: center; padding: 10px; background: white; border-radius: 10px; }
+        .history-item, .favorite-item { background: #f8f9fa; padding: 10px; margin-bottom: 10px; border-radius: 10px; display: flex; justify-content: space-between; align-items: center; }
+        .remove-fav-btn { background: #dc3545; padding: 5px 15px; }
+        .error { color: red; margin-top: 10px; display: none; }
+        .success { color: green; margin-top: 10px; display: none; }
+        .error.show, .success.show { display: block; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🌤️ WeatherK8s Dashboard</h1>
+        <div class="card">
+            <div class="search-box">
+                <input type="text" id="cityInput" placeholder="Enter city name..." onkeypress="if(event.key==='Enter') searchWeather()">
+                <button onclick="searchWeather()">Search</button>
+            </div>
+            <div id="error" class="error"></div>
+            <div id="success" class="success"></div>
+            <div id="weatherInfo" class="weather-info">
+                <h2 id="cityName"></h2>
+                <div class="temp" id="temp"></div>
+                <p id="description"></p>
+                <div class="details">
+                    <div class="detail"><strong>Humidity</strong><br><span id="humidity"></span></div>
+                    <div class="detail"><strong>Wind</strong><br><span id="wind"></span></div>
+                    <div class="detail"><strong>Pressure</strong><br><span id="pressure"></span></div>
+                </div>
+                <button onclick="addToFavorites()" style="margin-top: 15px; width: 100%;">⭐ Add to Favorites</button>
+            </div>
+        </div>
+        <div class="card">
+            <div class="tabs">
+                <button class="tab active" onclick="switchTab('history')">📜 History</button>
+                <button class="tab" onclick="switchTab('favorites')">⭐ Favorites</button>
+            </div>
+            <div id="historyTab" class="tab-content active"><div id="historyList"></div></div>
+            <div id="favoritesTab" class="tab-content"><div id="favoritesList"></div></div>
+        </div>
+    </div>
+    <script>
+        const API = 'http://localhost:5000';
+        let currentCity = '';
+        async function searchWeather() {
+            const city = document.getElementById('cityInput').value.trim();
+            if (!city) return showError('Please enter a city name');
+            try {
+                const response = await fetch(`${API}/api/weather/${city}`);
+                const data = await response.json();
+                if (response.ok) {
+                    currentCity = data.name;
+                    document.getElementById('cityName').textContent = `${data.name}, ${data.sys?.country || ''}`;
+                    document.getElementById('temp').textContent = `${Math.round(data.main?.temp)}°C`;
+                    document.getElementById('description').textContent = data.weather?.[0]?.description || '';
+                    document.getElementById('humidity').textContent = `${data.main?.humidity}%`;
+                    document.getElementById('wind').textContent = `${data.wind?.speed} m/s`;
+                    document.getElementById('pressure').textContent = `${data.main?.pressure} hPa`;
+                    document.getElementById('weatherInfo').classList.add('show');
+                    hideError();
+                    loadHistory();
+                    document.getElementById('cityInput').value = '';
+                } else showError(data.error || 'City not found');
+            } catch (error) { showError('Failed to fetch weather data'); }
+        }
+        async function loadHistory() {
+            try {
+                const response = await fetch(`${API}/history`);
+                const history = await response.json();
+                const container = document.getElementById('historyList');
+                if (!history || history.length === 0) return container.innerHTML = '<p>No searches yet</p>';
+                container.innerHTML = history.map(item => `<div class="history-item"><div><strong>${item.city}</strong> ${item.country ? `, ${item.country}` : ''}<br><small>${item.temperature}°C - ${item.description}</small><br><small>${new Date(item.search_time).toLocaleString()}</small></div><button onclick="searchAgain('${item.city}')">Search</button></div>`).join('');
+            } catch (error) { console.error(error); }
+        }
+        async function loadFavorites() {
+            try {
+                const response = await fetch(`${API}/favorites`);
+                const favorites = await response.json();
+                const container = document.getElementById('favoritesList');
+                if (!favorites || favorites.length === 0) return container.innerHTML = '<p>No favorites yet</p>';
+                container.innerHTML = favorites.map(item => `<div class="favorite-item"><div><strong>${item.city}</strong><br><small>Added: ${new Date(item.added_time).toLocaleString()}</small></div><div><button onclick="searchAgain('${item.city}')" style="margin-right:5px;">Search</button><button class="remove-fav-btn" onclick="removeFromFavorites('${item.city}')">Remove</button></div></div>`).join('');
+            } catch (error) { console.error(error); }
+        }
+        async function addToFavorites() {
+            if (!currentCity) return showError('No city to add');
+            try {
+                const response = await fetch(`${API}/favorites`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ city: currentCity }) });
+                if (response.ok) { showSuccess(`${currentCity} added!`); loadFavorites(); }
+                else showError('Failed to add');
+            } catch (error) { showError('Error adding'); }
+        }
+        async function removeFromFavorites(city) {
+            try {
+                const response = await fetch(`${API}/favorites/${city}`, { method: 'DELETE' });
+                if (response.ok) { showSuccess(`${city} removed`); loadFavorites(); }
+                else showError('Failed to remove');
+            } catch (error) { showError('Error removing'); }
+        }
+        function searchAgain(city) { document.getElementById('cityInput').value = city; searchWeather(); }
+        function switchTab(tab) {
+            if (tab === 'history') {
+                document.getElementById('historyTab').classList.add('active');
+                document.getElementById('favoritesTab').classList.remove('active');
+                loadHistory();
+            } else {
+                document.getElementById('historyTab').classList.remove('active');
+                document.getElementById('favoritesTab').classList.add('active');
+                loadFavorites();
+            }
+            document.querySelectorAll('.tab').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+        }
+        function showError(msg) { let d = document.getElementById('error'); d.textContent = msg; d.classList.add('show'); setTimeout(() => d.classList.remove('show'), 3000); }
+        function showSuccess(msg) { let d = document.getElementById('success'); d.textContent = msg; d.classList.add('show'); setTimeout(() => d.classList.remove('show'), 3000); }
+        function hideError() { document.getElementById('error').classList.remove('show'); }
+        loadHistory();
+    </script>
+</body>
+</html>
+'@
+
+# Save to a temporary file
+$htmlFile = "$env:TEMP\weather-app.html"
+$htmlContent | Out-File -FilePath $htmlFile -Encoding UTF8
+
+Write-Host "File saved to: $htmlFile"

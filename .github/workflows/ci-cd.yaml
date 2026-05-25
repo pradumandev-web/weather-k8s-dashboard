@@ -2,18 +2,21 @@ name: CI/CD — Weather Dashboard
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   pull_request:
-    branches: [ main ]
+    branches: [main]
 
 env:
   DOCKER_HUB_USER: ${{ secrets.DOCKER_HUB_USER }}
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
   # ── Job 1: Build & Push Docker Images ──────────────────────────────────────
   build:
     name: Build & Push Images
     runs-on: ubuntu-latest
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
     steps:
       - name: Checkout code
@@ -51,6 +54,8 @@ jobs:
     name: Security Scan
     runs-on: ubuntu-latest
     needs: build
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
     steps:
       - name: Scan Backend Image
@@ -58,7 +63,7 @@ jobs:
         with:
           image-ref: ${{ env.DOCKER_HUB_USER }}/weather-backend:latest
           format: table
-          exit-code: 0        # set to 1 to fail on HIGH vulnerabilities
+          exit-code: 0
           severity: CRITICAL,HIGH
 
       - name: Scan Frontend Image
@@ -75,6 +80,8 @@ jobs:
     runs-on: ubuntu-latest
     needs: security-scan
     if: github.ref == 'refs/heads/main'
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
     steps:
       - name: Checkout code

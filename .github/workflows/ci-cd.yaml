@@ -87,16 +87,16 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.PAT_TOKEN }}
 
       - name: Update image tags in values.yaml
         run: |
           sed -i "s|tag: latest|tag: ${{ github.sha }}|g" helm/weather-chart/values.yaml
 
-      - name: Commit updated values.yaml
+      - name: Commit and push changes
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add helm/weather-chart/values.yaml
           git commit -m "ci: update image tag to ${{ github.sha }}" || echo "No changes to commit"
-          git push
+          git push https://${{ secrets.PAT_TOKEN }}@github.com/${{ github.repository }}.git
